@@ -40,7 +40,6 @@ export class PostsService {
     try {
       return await this.postsRepository.save(post);
     } catch (error) {
-      // code 23505 = violation de contrainte unique en PostgreSQL
       if (
         error instanceof QueryFailedError &&
         (error.driverError as { code?: string })?.code === '23505'
@@ -78,6 +77,7 @@ export class PostsService {
           user: { id: requestingUserId },
           dayDate,
         },
+        relations: { user: true },
       });
       return {
         locked: true,

@@ -9,11 +9,20 @@ import { DateTime } from 'luxon';
 import { Post } from './post.entity';
 import { ChannelsService } from '../channels/channels.service';
 import { CreatePostDto } from './dto/create-post.dto';
+import { PublicUser, toPublicUser } from '../users/public-user';
+
+export interface PostView {
+  id: string;
+  photoUrl: string;
+  caption: string | null;
+  dayDate: string;
+  user: PublicUser;
+}
 
 export interface DayPostsResult {
   locked: boolean;
   unlocksAt: string;
-  posts: Post[];
+  posts: PostView[];
 }
 
 @Injectable()
@@ -82,7 +91,7 @@ export class PostsService {
       return {
         locked: true,
         unlocksAt: unlockMoment.toISO()!,
-        posts: myPost ? [myPost] : [],
+        posts: myPost ? [this.toPostView(myPost)] : [],
       };
     }
 
@@ -95,7 +104,7 @@ export class PostsService {
     return {
       locked: false,
       unlocksAt: unlockMoment.toISO()!,
-      posts,
+      posts: posts.map((p) => this.toPostView(p)),
     };
   }
 
@@ -111,5 +120,15 @@ export class PostsService {
       second: 0,
       millisecond: 0,
     });
+  }
+
+  private toPostView(post: Post): PostView {
+    return {
+      id: post.id,
+      photoUrl: post.photoUrl,
+      caption: post.caption ?? null,
+      dayDate: post.dayDate,
+      user: toPublicUser(post.user),
+    };
   }
 }

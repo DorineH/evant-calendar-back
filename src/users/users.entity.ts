@@ -23,8 +23,8 @@ export class User {
   @Column()
   pseudo!: string;
 
-  @Column({ nullable: true })
-  avatarUrl!: string;
+  @Column({ type: 'varchar', nullable: true })
+  avatarUrl!: string | null;
 
   @CreateDateColumn()
   createdAt!: Date;

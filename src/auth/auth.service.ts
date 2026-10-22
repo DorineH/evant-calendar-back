@@ -8,6 +8,7 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { assertEmailDomainCanReceiveMail } from './email-domain.validator';
 
 @Injectable()
 export class AuthService {
@@ -17,9 +18,16 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
+    await assertEmailDomainCanReceiveMail(dto.email);
+
     const existing = await this.usersService.findByEmail(dto.email);
     if (existing) {
-      throw new ConflictException('Un compte existe déjà avec cet email');
+      const message = 'Un compte existe déjà avec cet email';
+      throw new ConflictException({
+        statusCode: 409,
+        message,
+        errors: { email: message },
+      });
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);

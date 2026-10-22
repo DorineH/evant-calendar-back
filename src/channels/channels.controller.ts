@@ -51,7 +51,7 @@ export class ChannelsController {
     if (!isMember) {
       throw new ForbiddenException('Tu ne fais pas partie de ce canal');
     }
-    return this.channelsService.findMembers(id);
+    return this.channelsService.findMembersPublic(id);
   }
 
   @Get(':id')

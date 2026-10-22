@@ -14,6 +14,12 @@ import { generateInviteCode } from './utils/generate-invite-code';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { Post } from 'src/posts/post.entity';
+import { PublicUser, toPublicUser } from '../users/public-user';
+
+export interface MemberView {
+  role: 'owner' | 'member';
+  user: PublicUser;
+}
 
 @Injectable()
 export class ChannelsService {
@@ -124,6 +130,19 @@ export class ChannelsService {
       where: { channel: { id: channelId } },
       relations: { user: true },
     });
+  }
+
+  async findMembersPublic(channelId: string): Promise<MemberView[]> {
+    const members = await this.findMembers(channelId);
+    return members
+      .map((m): MemberView => ({
+        role: m.role,
+        user: toPublicUser(m.user),
+      }))
+      .sort((a, b) => {
+        if (a.role !== b.role) return a.role === 'owner' ? -1 : 1;
+        return a.user.pseudo.localeCompare(b.user.pseudo, 'fr');
+      });
   }
 
   async isMember(channelId: string, userId: string): Promise<boolean> {

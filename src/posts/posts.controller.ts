@@ -14,6 +14,9 @@ import { ChannelsService } from '../channels/channels.service';
 import { StorageService } from '../storage/storage.service';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
+import { NotFoundException } from '@nestjs/common';
+import { DateTime } from 'luxon';
+import { fieldError } from '../common/field-error';
 
 interface AuthenticatedRequest extends Request {
   user: { userId: string; email: string };
@@ -33,17 +36,14 @@ export class PostsController {
     @Param('channelId') channelId: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    // const isMember = await this.channelsService.isMember(
-    //   channelId,
-    //   req.user.userId,
-    // );
-    // if (!isMember) {
-    //   throw new ForbiddenException('Tu ne fais pas partie de ce canal');
-    // }
-
     await this.assertMember(channelId, req.user.userId);
 
-    const today = new Date().toISOString().split('T')[0];
+    const channel = await this.channelsService.findById(channelId);
+    if (!channel) {
+      throw new NotFoundException('Canal introuvable');
+    }
+
+    const today = DateTime.now().setZone(channel.timezone).toISODate();
     const folder = `channels/${channelId}/${today}`;
 
     return this.storageService.generateUploadSignature(folder);
@@ -56,6 +56,25 @@ export class PostsController {
     @Req() req: AuthenticatedRequest,
   ) {
     await this.assertMember(channelId, req.user.userId);
+
+    const { channel, today } = await this.getChannelAndToday(channelId);
+
+    if (dto.dayDate !== today) {
+      throw fieldError(
+        'dayDate',
+        "Tu ne peux poster une photo que pour aujourd'hui",
+      );
+    }
+
+    const start = String(channel.startDate).slice(0, 10);
+    const end = String(channel.endDate).slice(0, 10);
+    if (today < start || today > end) {
+      throw fieldError(
+        'dayDate',
+        "Le calendrier n'est pas en cours aujourd'hui",
+      );
+    }
+
     return this.postsService.create(channelId, req.user.userId, dto);
   }
 
@@ -74,5 +93,14 @@ export class PostsController {
     if (!isMember) {
       throw new ForbiddenException('Tu ne fais pas partie de ce canal');
     }
+  }
+
+  private async getChannelAndToday(channelId: string) {
+    const channel = await this.channelsService.findById(channelId);
+    if (!channel) {
+      throw new NotFoundException('Canal introuvable');
+    }
+    const today = DateTime.now().setZone(channel.timezone).toISODate()!;
+    return { channel, today };
   }
 }

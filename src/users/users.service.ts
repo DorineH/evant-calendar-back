@@ -44,8 +44,15 @@ export class UsersService {
     email: string,
     passwordHash: string,
     pseudo: string,
+    marketingConsent = false,
   ): Promise<User> {
-    const user = this.usersRepository.create({ email, passwordHash, pseudo });
+    const user = this.usersRepository.create({
+      email,
+      passwordHash,
+      pseudo,
+      marketingConsent,
+      marketingConsentAt: marketingConsent ? new Date() : null,
+    });
     return this.usersRepository.save(user);
   }
 
@@ -119,6 +126,14 @@ export class UsersService {
         throw fieldError('avatarUrl', "Cette image d'avatar n'est pas valide");
       }
       user.avatarUrl = dto.avatarUrl;
+    }
+
+    if (
+      dto.marketingConsent !== undefined &&
+      dto.marketingConsent !== user.marketingConsent
+    ) {
+      user.marketingConsent = dto.marketingConsent;
+      user.marketingConsentAt = dto.marketingConsent ? new Date() : null;
     }
 
     const saved = await this.usersRepository.save(user);

@@ -26,6 +26,12 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   avatarUrl!: string | null;
 
+  @Column({ type: 'boolean', default: false })
+  marketingConsent!: boolean;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  marketingConsentAt!: Date | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 

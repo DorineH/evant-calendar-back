@@ -35,6 +35,7 @@ export class AuthService {
       dto.email,
       passwordHash,
       dto.pseudo,
+      dto.marketingConsent === true,
     );
 
     return this.buildTokenResponse(user.id, user.email);

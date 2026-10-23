@@ -1,4 +1,11 @@
-import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MaxLength,
+  MinLength,
+  IsBoolean,
+  IsOptional,
+} from 'class-validator';
 
 export class RegisterDto {
   @IsEmail({}, { message: "L'adresse email n'est pas valide" })
@@ -14,4 +21,8 @@ export class RegisterDto {
   @MinLength(2, { message: 'Le pseudo doit contenir au moins 2 caractères' })
   @MaxLength(30, { message: 'Le pseudo ne peut pas dépasser 30 caractères' })
   pseudo!: string;
+
+  @IsOptional()
+  @IsBoolean({ message: 'Le choix pour la newsletter doit être oui ou non' })
+  marketingConsent?: boolean;
 }

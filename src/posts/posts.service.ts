@@ -10,6 +10,9 @@ import { Post } from './post.entity';
 import { ChannelsService } from '../channels/channels.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { PublicUser, toPublicUser } from '../users/public-user';
+import { ForbiddenException } from '@nestjs/common';
+import { In } from 'typeorm';
+import { PostOpening } from './post-opening.entity';
 
 export interface PostView {
   id: string;
@@ -17,12 +20,15 @@ export interface PostView {
   caption: string | null;
   dayDate: string;
   user: PublicUser;
+  isMine: boolean;
+  openedByMe: boolean;
 }
 
 export interface DayPostsResult {
   locked: boolean;
   unlocksAt: string;
   posts: PostView[];
+  othersCount: number;
 }
 
 @Injectable()
@@ -31,6 +37,8 @@ export class PostsService {
     @InjectRepository(Post)
     private postsRepository: Repository<Post>,
     private channelsService: ChannelsService,
+    @InjectRepository(PostOpening)
+    private readonly openingsRepository: Repository<PostOpening>,
   ) {}
 
   async create(
@@ -78,8 +86,12 @@ export class PostsService {
     );
     const locked = DateTime.now() < unlockMoment;
 
+    const totalCount = await this.postsRepository.count({
+      where: { channel: { id: channelId }, dayDate },
+    });
+
     if (locked) {
-      // Verrouillé : on ne renvoie que MA propre photo, pas celles des autres
+      // Verrouillé
       const myPost = await this.postsRepository.findOne({
         where: {
           channel: { id: channelId },
@@ -91,21 +103,75 @@ export class PostsService {
       return {
         locked: true,
         unlocksAt: unlockMoment.toISO()!,
-        posts: myPost ? [this.toPostView(myPost)] : [],
+        posts: myPost
+          ? [this.toPostView(myPost, requestingUserId, new Set())]
+          : [],
+        othersCount: totalCount - (myPost ? 1 : 0),
       };
     }
 
-    // Déverrouillé : tout le monde voit toutes les photos du jour
+    // Déverrouillé
     const posts = await this.postsRepository.find({
       where: { channel: { id: channelId }, dayDate },
       relations: { user: true },
     });
 
+    const openedIds = new Set<string>();
+    if (posts.length > 0) {
+      const openings = await this.openingsRepository.find({
+        where: {
+          user: { id: requestingUserId },
+          post: { id: In(posts.map((p) => p.id)) },
+        },
+        relations: { post: true },
+      });
+      openings.forEach((o) => openedIds.add(o.post.id));
+    }
+
+    const views = posts
+      .map((p) => this.toPostView(p, requestingUserId, openedIds))
+      .sort((a, b) => Number(b.isMine) - Number(a.isMine));
+
     return {
       locked: false,
       unlocksAt: unlockMoment.toISO()!,
-      posts: posts.map((p) => this.toPostView(p)),
+      posts: views,
+      othersCount: views.filter((v) => !v.isMine).length,
     };
+  }
+
+  async openPost(
+    channelId: string,
+    postId: string,
+    userId: string,
+  ): Promise<void> {
+    const post = await this.postsRepository.findOne({
+      where: { id: postId },
+      relations: { channel: true, user: true },
+    });
+
+    if (!post || post.channel.id !== channelId) {
+      throw new NotFoundException('Cadeau introuvable');
+    }
+
+    if (post.user.id === userId) return;
+
+    const unlockMoment = this.computeUnlockMoment(
+      post.dayDate,
+      post.channel.openTime,
+      post.channel.timezone,
+    );
+    if (DateTime.now() < unlockMoment) {
+      throw new ForbiddenException('Ce cadeau ne peut pas encore être ouvert');
+    }
+
+    await this.openingsRepository
+      .createQueryBuilder()
+      .insert()
+      .into(PostOpening)
+      .values({ user: { id: userId }, post: { id: postId } })
+      .orIgnore()
+      .execute();
   }
 
   private computeUnlockMoment(
@@ -122,13 +188,20 @@ export class PostsService {
     });
   }
 
-  private toPostView(post: Post): PostView {
+  private toPostView(
+    post: Post,
+    viewerId: string,
+    openedIds: Set<string>,
+  ): PostView {
+    const isMine = post.user.id === viewerId;
     return {
       id: post.id,
       photoUrl: post.photoUrl,
       caption: post.caption ?? null,
       dayDate: post.dayDate,
       user: toPublicUser(post.user),
+      isMine,
+      openedByMe: isMine || openedIds.has(post.id),
     };
   }
 }

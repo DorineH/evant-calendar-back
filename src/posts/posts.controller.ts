@@ -7,6 +7,7 @@ import {
   Body,
   UseGuards,
   ForbiddenException,
+  HttpCode,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -76,6 +77,17 @@ export class PostsController {
     }
 
     return this.postsService.create(channelId, req.user.userId, dto);
+  }
+
+  @Post(':postId/open')
+  @HttpCode(204)
+  async open(
+    @Param('channelId') channelId: string,
+    @Param('postId') postId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    await this.assertMember(channelId, req.user.userId);
+    await this.postsService.openPost(channelId, postId, req.user.userId);
   }
 
   @Get('days/:date')

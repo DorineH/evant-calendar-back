@@ -5,9 +5,14 @@ import { PostsController } from './posts.controller';
 import { PostsService } from './posts.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Post } from './post.entity';
+import { PostOpening } from './post-opening.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Post]), ChannelsModule, StorageModule],
+  imports: [
+    TypeOrmModule.forFeature([Post, PostOpening]),
+    ChannelsModule,
+    StorageModule,
+  ],
   controllers: [PostsController],
   providers: [PostsService],
 })

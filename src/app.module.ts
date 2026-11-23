@@ -11,6 +11,7 @@ import { PostsModule } from './posts/posts.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DevicesModule } from './devices/devices.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PostOpening } from './posts/post-opening.entity';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     PostsModule,
     DevicesModule,
     NotificationsModule,
+    PostOpening,
   ],
   controllers: [AppController],
   providers: [AppService],
